@@ -1,0 +1,1 @@
+Another test commit to check whether 'Verified' badge still on but I don't have to enter passphrase. Using pinetree this time.

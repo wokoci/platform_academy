@@ -9,13 +9,18 @@ $dbPassword = getenv('DB_PASSWORD');
 $dbDatabase = getenv('DB_DATABASE');
 
 /* Connect to PostgreSQL and select the database. */
-$constring = "host=" . $dbServer . " dbname=" . $dbDatabase . " user=" . $dbUsername . " password=" . $dbPassword ;
-$connection = pg_connect($constring);
+#$constring = "host=" . $dbServer . " dbname=" . $dbDatabase . " user=" . $dbUsername . " password=" . $dbPassword ;
+#$connection = pg_connect($constring);
 
-if (!$connection){
- echo "Failed to connect to PostgreSQL";
- exit;
-}
+/* Connect to Maria DB and select the database. */
+$connection = mysqli_connect($dbServer, $dbUsername, $dbPassword);
+
+// if (!$connection){
+//  echo "Failed to connect to PostgreSQL";
+//  exit;
+// }
+if (mysqli_connect_errno()) echo "Failed to connect to MySQL: " . mysqli_connect_error();
+$database = mysqli_select_db($connection, $dbDatabase);
 
 /* Ensure that the EMPLOYEES table exists. */
 VerifyEmployeesTable($connection, $dbDatabase);
@@ -60,9 +65,11 @@ if (strlen($employee_name) || strlen($employee_address)) {
 
 <?php
 
-$result = pg_query($connection, "SELECT * FROM EMPLOYEES");
+// $result = pg_query($connection, "SELECT * FROM EMPLOYEES");
+$result = mysqli_query($connection, "SELECT * FROM EMPLOYEES");
 
-while($query_data = pg_fetch_row($result)) {
+// while($query_data = pg_fetch_row($result)) {
+while($query_data = mysqli_fetch_row($result)) {
   echo "<tr>";
   echo "<td>",$query_data[0], "</td>",
        "<td>",$query_data[1], "</td>",
@@ -75,8 +82,10 @@ while($query_data = pg_fetch_row($result)) {
 <!-- Clean up. -->
 <?php
 
-  pg_free_result($result);
-  pg_close($connection);
+  // pg_free_result($result);
+  // pg_close($connection);
+  mysqli_free_result($result);
+  mysqli_close($connection);
 ?>
 </body>
 </html>
@@ -86,12 +95,15 @@ while($query_data = pg_fetch_row($result)) {
 
 /* Add an employee to the table. */
 function AddEmployee($connection, $name, $address) {
-   $n = pg_escape_string($name);
-   $a = pg_escape_string($address);
+  //  $n = pg_escape_string($name);
+  //  $a = pg_escape_string($address);
+   $n = mysqli_real_escape_string($connection, $name);
+   $a = mysqli_real_escape_string($connection, $address);
    echo "Forming Query";
    $query = "INSERT INTO EMPLOYEES (NAME, ADDRESS) VALUES ('$n', '$a');";
 
-   if(!pg_query($connection, $query)) echo("<p>Error adding employee data.</p>"); 
+  //  if(!pg_query($connection, $query)) echo("<p>Error adding employee data.</p>"); 
+  if(!mysqli_query($connection, $query)) echo("<p>Error adding employee data.</p>");
 }
 
 /* Check whether the table exists and, if not, create it. */
@@ -99,24 +111,35 @@ function VerifyEmployeesTable($connection, $dbName) {
   if(!TableExists("EMPLOYEES", $connection, $dbName))
   {
      $query = "CREATE TABLE EMPLOYEES (
-         ID serial PRIMARY KEY,
+        --  ID serial PRIMARY KEY,
+         ID int(11) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
          NAME VARCHAR(45),
          ADDRESS VARCHAR(90)
        )";
 
-     if(!pg_query($connection, $query)) echo("<p>Error creating table.</p>"); 
+    //  if(!pg_query($connection, $query)) echo("<p>Error creating table.</p>"); 
+     if(!mysqli_query($connection, $query)) echo("<p>Error creating table.</p>");
   }
 }
 /* Check for the existence of a table. */
 function TableExists($tableName, $connection, $dbName) {
-  $t = strtolower(pg_escape_string($tableName)); //table name is case sensitive
-  $d = pg_escape_string($dbName); //schema is 'public' instead of 'sample' db name so not using that
+  // $t = strtolower(pg_escape_string($tableName)); //table name is case sensitive
+  // $d = pg_escape_string($dbName); //schema is 'public' instead of 'sample' db name so not using that
 
-  $query = "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_NAME = '$t';";
-  $checktable = pg_query($connection, $query);
+  // $query = "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_NAME = '$t';";
+  // $checktable = pg_query($connection, $query);
 
-  if (pg_num_rows($checktable) >0) return true;
+  // if (pg_num_rows($checktable) >0) return true;
+  $t = mysqli_real_escape_string($connection, $tableName);
+  $d = mysqli_real_escape_string($connection, $dbName);
+
+  $checktable = mysqli_query($connection,
+      "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_NAME = '$t' AND TABLE_SCHEMA = '$d'");
+
+  if(mysqli_num_rows($checktable) > 0) return true;
+
+
+
   return false;
-
 }
 ?>                        
